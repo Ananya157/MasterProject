@@ -1,17 +1,11 @@
 from bs4 import BeautifulSoup
 import requests
-import csv
 import string
-import PyPDF2
-import io
-from pyPdf import PdfFileReader
+import io 
 import json
 import re
 
-parsedData = csv.writer(open("parsedHtml.csv", "w"))
-parsedData.writerow(["Id", "Role", "Company", "Description"])
 url = "https://www.cia.gov/library/publications/the-world-factbook/docs/one_page_summaries.html"
-print(url)
 data = {}
 data['data'] = []
 html_content = requests.get(url).text
@@ -20,186 +14,164 @@ options = soup.select('option')
 for option in options:
     if option['value'] and option['data-place-code']:
         values = option['data-place-code']
-        url1 = "https://www.cia.gov/library/publications/the-world-factbook/attachments/summaries/"+ values.upper() + "-summary.pdf"
-        try:
-            print(url1)
-            if requests.get(url1).text:
-                html_content1 = requests.get(url1).text
-                soup1 = BeautifulSoup(html_content1, features="lxml")
-                if(soup1.find_all('div', {'class': 'row'})):
-                    pass
+        url1 = "https://www.cia.gov/library/publications/the-world-factbook/geos/"+ values.lower() + ".html"
+        if requests.get(url1).text:
+            html_content1 = requests.get(url1).text
+            soup1 = BeautifulSoup(html_content1, features="lxml")
+            
+            countryClass = soup1.find('span', {'class': 'region_name1 countryName'})
+            if countryClass:
+                country = countryClass.text.encode("utf-8", errors="ignore").strip()
+            else:
+                country = "Not Found"
+            
+            continentClass = soup1.find('div', {'id': 'field-map-references'})
+            if continentClass:
+                continent = continentClass.text.encode("utf-8", errors="ignore").strip()
+            else:
+                continent = "Not Found"
+
+            flagClass = soup1.find('div', {'class': 'flagBox'})
+            if flagClass:
+                flagPath = flagClass.img['src'].replace('..', 'https://www.cia.gov/library/publications/the-world-factbook')
+            else:
+                flagPath = "Not Found"
+
+            mapClass = soup1.find('div', {'class': 'map-holder'})
+            if mapClass:
+                mapPath = mapClass.img['src'].replace('..', 'https://www.cia.gov/library/publications/the-world-factbook')
+            else:
+                mapPath = "Not Found"
+                
+            populationMainClass = soup1.find('div', {'id': 'field-population'})
+            if populationMainClass:
+                populationClass = populationMainClass.find('span' , {'class':'subfield-number'})
+                if populationClass:
+                    population = populationClass.text.encode("utf-8", errors="ignore").strip()
                 else:
-                    r = requests.get(url1)
-                    f = io.BytesIO(r.content)
-                    reader = PdfFileReader(f)
-                    contents = reader.getPage(0).extractText().lower().replace(':', ' ')
-                    f.close()
-                    name = contents.split('geography', 1)[0]
-                    #Geography 
-                    try:
-                        total = re.search(r'geographyareatotal(.*?)land', contents).group(1).strip()
-                    except AttributeError:
-                        total = "null"
-                    try:
-                        land = re.search(r'land(.*?)water', contents).group(1).strip()
-                    except AttributeError:
-                        land = "null"
-                    try:
-                        water = re.search(r'water(.*?)climate', contents).group(1).strip()
-                    except AttributeError:
-                        water = "null"
-                    try:
-                        climate = re.search(r'climate(.*?)natural resources', contents).group(1).strip()
-                    except AttributeError:
-                         climate = "null"
-                    try:
-                        naturalResources=re.search(r'natural resources(.*?)government', contents).group(1).strip()
-                    except AttributeError:
-                        naturalResources = "null"
-                        
-                    #Government
-                    try:
-                        chiefOfState = re.search(r'chief of state(.*?)head of government', contents).group(1).strip()
-                    except AttributeError:
-                       chiefOfState = "null"
-                    try:
-                        headOfGovernment = re.search(r'head of government(.*?)government type', contents).group(1).strip()
-                    except AttributeError:
-                        headOfGovernment = "null"
-                    try:
-                        governmentType = re.search(r'government type(.*?)capital', contents).group(1).strip()
-                    except AttributeError:
-                        governmentType = "null"
-                    try:
-                        capital = re.search(r'capital(.*?)legislature', contents).group(1).strip()
-                    except AttributeError:
-                        capital = "null"
-                    try:
-                        legislature = re.search(r'legislature(.*?)judiciary', contents).group(1).strip()
-                    except AttributeError:
-                        legislature = "null"
-                    try:
-                        judiciary = re.search(r'judiciary(.*?)ambassador to us', contents).group(1).strip()
-                    except AttributeError:
-                        judiciary = "null"
-                    try:
-                        ambassadorToUs = re.search(r'ambassador to us(.*?)us ambassador', contents).group(1).strip()
-                    except AttributeError:
-                        ambassadorToUs = "null"
-                    try:
-                        uSAmbassador = re.search(r'us ambassador(.*?)people & society', contents).group(1).strip()
-                    except AttributeError:
-                        uSAmbassador = "null"
+                   population = "Not Found"
+            else:
+                population = "Not Found"
+            
+            languageMainClass = soup1.find('div', {'id': 'field-languages'})
+            if languageMainClass:
+                languageClass = languageMainClass.find('div' , {'class':'category_data subfield text'})
+                if languageClass:
+                    languageText= languageClass.text.encode("utf-8", errors="ignore")
+                    languageRegex = re.sub(r'\([^)]*\)', '', languageText)
+                    languageRegex1 = re.sub('[^A-Z a-z,]+', '', languageRegex)
+                    languageSplit = languageRegex1.split('other', 1)[0]
+                    language = languageSplit.replace('official', '').strip()
+                else:
+                    language = "Not Found"
+            else:
+                language = "Not Found"
+            
+            religionMainClass = soup1.find('div', {'id': 'field-religions'})
+            if religionMainClass:
+                religionClass = religionMainClass.find('div', {'class': 'category_data subfield text'})
+                if religionClass:
+                    religionText = religionClass.text.encode("utf-8", errors="ignore")
+                    religionRegex = re.sub(r'\([^)]*\)', '', religionText)
+                    religionRegex1 = re.sub('[^A-Z a-z,]+', '', religionRegex) 
+                    religion = religionRegex1.split('other', 1)[0].strip()
+                else:
+                    religion = "Not Found"
+            else:
+                religion = "Not Found"
 
-                    #People
-                    try:
-                       population = re.search(r'people & societypopulation(.*?)population growth', contents).group(1).strip() 
-                    except AttributeError:
-                        population = "null"
-                    try:
-                       populationGrowth = re.search(r'population growth(.*?)ethnicity', contents).group(1).strip() 
-                    except AttributeError:
-                        populationGrowth = "null"
-                    try:
-                        ethnicity = re.search(r'ethnicity(.*?)language', contents).group(1).strip()
-                    except AttributeError:
-                        ethnicity = "null"
-                    try:
-                       language = re.search(r'language(.*?)religion', contents).group(1).strip() 
-                    except AttributeError:
-                        language = "null"
-                    try:
-                       religion = re.search(r'religion(.*?)urbanization', contents).group(1).strip() 
-                    except AttributeError:
-                        religion = "null"
-                    try:
-                        urbanization = re.search(r'urbanizationurban population(.*?)rate of urbanization', contents).group(1).strip()
-                    except AttributeError:
-                        urbanization = "null"
-                    try:
-                        literacy = re.search(r'literacy(.*?)economyeconomic', contents).group(1).strip()
-                    except AttributeError:
-                        literacy = "null"
-                    try:
-                        economicOverview = re.search(r'economyeconomic overview(.*?)gdp', contents).group(1).strip()
-                    except AttributeError:
-                        economicOverview = "null"
-                    try:
-                        gDP= re.search(r'gdp(.*?)gdp per capita', contents).group(1).strip()
-                    except AttributeError:
-                        gDP = "null"
-                    try:
-                        gDPPerCapita = re.search(r'gdp per capita(.*?)exports', contents).group(1).strip()
-                    except AttributeError:
-                        gDPPerCapita = "null"
-                    try:
-                        exportsTotal = re.search(r'exports(.*?)partners', contents).group(1).strip()
-                    except AttributeError:
-                        exportsTotal = "null"
-                    try:
-                        exportpatners = re.search(r'partners(.*?)imports', contents).group(1).strip()
-                    except AttributeError:
-                        exportpatners = "null"
-                    try:
-                        importsTotal = re.search( r'imports(.*?)partners', contents).group(1).strip()
-                    except AttributeError:
-                        importsTotal = "null"
-                    try:
-                        importpatners = re.search(r'partners(.*?)', contents).group(1).strip()
-                    except AttributeError:
-                        importpatners = "null"
-                  
+            governmentTypeMainClass = soup1.find('div', {'id': 'field-government-type'})
+            if governmentTypeMainClass:
+                governmentTypeClass = governmentTypeMainClass.find('div' , {'class':'category_data subfield text'})
+                if governmentTypeClass:
+                    governmentType = governmentTypeClass.text.encode("utf-8", errors="ignore").strip() 
+                else:
+                    governmentType = "Not Found"
+            else:
+                governmentType = "Not Found"
 
-                    data['data'].append({
-                        "country": name,
-                        "governemnet": {
-                            "chiefOfState": chiefOfState,
-                            "headOfGovernment": headOfGovernment,
-                            "governmentType": governmentType,
-                            "capital": capital,
-                            "legislature": legislature,
-                            "judiciary": judiciary,
-                            "ambassadortoUS": ambassadorToUs,
-                            "uSAmbassador": uSAmbassador
-                        },
-                        "economy" : {
-                            "economicOverview" : economicOverview,
-                            "gdp" : gDP,
-                            "gdpPerCapita" : gDPPerCapita,
-                            "imports" : {
-                                "total": importsTotal,
-                                "patners": importpatners
-                            },
-                            "exports" : {
-                                "total": exportsTotal,
-                                "patners": exportpatners
-                            }
-                        },
-                        "people" : {
-                            "population" : population,
-                            "populationGrowth" : populationGrowth,
-                            "ethnicity" : ethnicity,
-                            "language" : language,
-                            "religion" : religion,
-                            "urbanization" : urbanization,
-                            "literacy" : literacy
-                        },
-                        "geography" : {
-                            "area" : {
-                                "total" : total,
-                                "land" : land,
-                                "water" : water
-                            },
-                            "climate" : climate,
-                            "naturalResources" : naturalResources
-                        }
-                    })
-                    with open('data.json', 'w') as outfile:
-                        json.dump(data, outfile)
-                        outfile.write('\n')
-        except PyPDF2.utils.PdfReadError:
-            print("invalid PDF file")
-            pass
-        else:
-            pass
-        
+            capitalMainClass = soup1.find('div', {'id': 'field-capital'})
+            if capitalMainClass:
+                capitalClass = capitalMainClass.find('div' , {'class':'category_data subfield text'})
+                if capitalClass:
+                    capitalText = capitalClass.text.encode("utf-8", errors="ignore")
+                    capital = capitalText.replace('name:','').strip()
+                else:
+                    capital = "Not Found"
+            else:
+                capital = "Not Found"
+
+            climateMainClass = soup1.find('div', {'id': 'field-climate'})
+            if climateMainClass:
+                climateClass = climateMainClass.find('div' , {'class':'category_data subfield text'})
+                if climateClass:
+                    climate= climateClass.text.encode("utf-8", errors="ignore").strip() 
+                else:
+                    climate = "Not Found"
+            else:
+                climate = "Not Found"
+
+            gdpMainClass = soup1.find('div', {'id': 'field-gdp-per-capita-ppp'})
+            if gdpMainClass:
+                gdpClass = gdpMainClass.find('span' , {'class':'subfield-number'})
+                if gdpClass:
+                    gdp = gdpClass.text.encode("utf-8", errors="ignore").strip()
+                else:
+                    gdp = "Not Found"
+            else:
+                gdp = "Not Found"
+
+            agricultureMainClass = soup1.find('div', {'id': 'field-agriculture-products'})
+            if agricultureMainClass:
+                agricultureClass = agricultureMainClass.find('div' , {'class':'category_data subfield text'})
+                if agricultureClass:
+                    agriculture= agricultureClass.text.encode("utf-8", errors="ignore").strip()
+                else:
+                    agriculture = "Not Found"
+            else:
+                agriculture = "Not Found"
+
+            industriesMainClass = soup1.find('div', {'id': 'field-industries'})
+            if industriesMainClass:
+                industriesClass = industriesMainClass.find('div' , {'class':'category_data subfield text'})
+                if industriesClass:
+                    industries= industriesClass.text.encode("utf-8", errors="ignore").strip()
+                else:
+                    industries = "Not Found"
+            else:
+                industries = "Not Found"
+
+            exportsMainClass = soup1.find('div', {'id': 'field-exports-commodities'})
+            if exportsMainClass:
+                exportsClass = exportsMainClass.find('div' , {'class':'category_data subfield text'})
+                if exportsClass:
+                    exports = exportsClass.text.encode("utf-8", errors="ignore").strip() 
+                else:
+                    exports = "Not Found"
+            else:
+                exports = "Not Found"
+
+            data['data'].append({
+                "country": country,
+                "continent": continent,
+                "capital": capital,
+                "governmentType": governmentType,
+                "population": population, 
+                "language": language,
+                "religion": religion, 
+                "background": "",
+                "currency": "",
+                "flagColor": "",
+                "climate": climate, 
+                "gdp": gdp,
+                "agriculture": agriculture,
+                "industries": industries,
+                "exports": exports,
+                "mapPath": mapPath,
+                "flagPath": flagPath
+            })
+            with open('data2.json', 'w') as outfile:
+                json.dump(data, outfile)
+                outfile.write('\n')
+    else:
+        pass
